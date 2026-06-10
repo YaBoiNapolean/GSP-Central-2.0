@@ -1,3 +1,19 @@
+import sys
+
+# Trick discord.py into finding the audioop module if it's missing in Python 3.13
+try:
+    import audioop
+except ImportError:
+    try:
+        from pip._internal import main as pipmain
+        pipmain(['install', 'audioop-lts'])
+        import audioop
+    except Exception:
+        # If automatic installation fails, manually mock the module so discord.py stops crashing
+        import types
+        mock_audioop = types.ModuleType('audioop')
+        mock_audioop.error = Exception
+        sys.modules['audioop'] = mock_audioop
 import os
 import discord
 import asyncio
