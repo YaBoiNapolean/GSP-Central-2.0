@@ -603,9 +603,54 @@ async def warrant_log(itx: discord.Interaction, suspect: str, reason: str, risk:
 @bot.tree.command(name="user_info", description="Discord profile lookup")
 async def user_info(itx: discord.Interaction, trooper: discord.Member):
     if not await is_cmd_channel(itx): return
+    
+    # Process dynamic activities/presence (since static connections are hidden by Discord)
+    activities_list = []
+    if trooper.activities:
+        for act in trooper.activities:
+            if act.type == discord.ActivityType.playing:
+                activities_list.append(f"🎮 Playing: **{act.name}**")
+            elif act.type == discord.ActivityType.streaming:
+                activities_list.append(f"📺 Streaming: **{act.name}**")
+            elif act.type == discord.ActivityType.listening:
+                activities_list.append(f"🎵 Listening to: **{act.name}**")
+            elif act.type == discord.ActivityType.custom:
+                # Fallbacks if a custom status contains emojis or custom text attributes
+                status_text = act.name if act.name else ""
+                if act.emoji:
+                    status_text = f"{act.emoji} {status_text}"
+                if status_text:
+                    activities_list.append(f"💬 Status: *\"{status_text}\"*")
+                
+    status_display = "\n".join(activities_list) if activities_list else "None (Offline or no active status layout)"
+
+    # Build the enhanced profile embed
     e = discord.Embed(title=f"**PROFILE: {trooper.display_name}**", color=GSP_CUSTOM_ORANGE)
-    e.description = f"{SEPARATOR}\n**ID:** `{trooper.id}`\n**Join Date:** {trooper.joined_at.strftime('%Y-%m-%d') if trooper.joined_at else 'N/A'}\n{SEPARATOR}"
-    e.set_footer(text=f"Requested by {itx.user.display_name}")
+    
+    # Feature: Add profile picture as a thumbnail
+    if trooper.display_avatar:
+        e.set_thumbnail(url=trooper.display_avatar.url)
+        
+    # Feature: Convert timestamps into Discord relative time markdown strings
+    created_unix = int(trooper.created_at.timestamp())
+    joined_unix = int(trooper.joined_at.timestamp()) if trooper.joined_at else None
+    
+    created_str = f"{trooper.created_at.strftime('%Y-%m-%d')} (<t:{created_unix}:R>)"
+    joined_str = f"{trooper.joined_at.strftime('%Y-%m-%d')} (<t:{joined_unix}:R>)" if joined_unix else "N/A"
+
+    e.description = (
+        f"{SEPARATOR}\n"
+        f"🆔 **User ID:** `{trooper.id}`\n"
+        f"👤 **Type:** {'`Bot` 🤖' if trooper.bot else '`Trooper` 👥'}\n"
+        f"👑 **Top Role:** {trooper.top_role.mention}\n\n"
+        f"📅 **Account Created:** {created_str}\n"
+        f"📥 **Joined Guild:** {joined_str}\n\n"
+        f"✨ **Live Presence / Activity:**\n{status_display}\n"
+        f"{SEPARATOR}"
+    )
+    
+    # Keeping your uniform global logging footer format intact
+    e.set_footer(text=f"Logged by {itx.user.display_name} in {itx.guild.name}")
     await itx.response.send_message(embed=e)
 
 @bot.event
