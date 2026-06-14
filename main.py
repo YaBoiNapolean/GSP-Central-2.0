@@ -654,6 +654,53 @@ async def user_info(itx: discord.Interaction, trooper: discord.Member):
     await itx.response.send_message(embed=e)
 
 @bot.event
+async def on_message(message):
+    # Ignore messages sent by bots to avoid infinite loops
+    if message.author.bot:
+        return
+
+    # Check if the bot was explicitly mentioned and it wasn't a mass ping (@everyone)
+    if bot.user in message.mentions and not message.mention_everyone:
+        # Dynamically fetch all registered slash commands from the tree
+        slash_cmds = bot.tree.get_commands()
+        total_cmds = len(slash_cmds)
+        
+        # Build the scannable directory list of commands and their descriptions
+        cmd_directory = ""
+        for cmd in slash_cmds:
+            cmd_directory += f"• `/{cmd.name}`: *{cmd.description or 'No description available.'}*\n"
+            
+        # Set up the embed structure
+        e = discord.Embed(
+            title=f"🤖 **BOT PROFILE: {bot.user.name}**", 
+            color=GSP_CUSTOM_ORANGE
+        )
+        
+        # Feature: Set the bot's profile picture as the main large embed image
+        if bot.user.display_avatar:
+            e.set_image(url=bot.user.display_avatar.url)
+            
+        # Compile stats and directory layout
+        e.description = (
+            f"{SEPARATOR}\n"
+            f"📊 **System Diagnostics:**\n"
+            f"• **Total Registered Commands:** `{total_cmds}`\n"
+            f"• **Guild Connections:** `{len(bot.guilds)} servers`\n"
+            f"• **Network Latency:** `{round(bot.latency * 1000)}ms`\n"
+            f"• **Engine Version:** `discord.py v{discord.__version__}`\n\n"
+            f"🛠️ **Available Slash Commands:**\n{cmd_directory}"
+            f"{SEPARATOR}"
+        )
+        
+        # Matches your exact requested footer layout
+        e.set_footer(text=f"Requested by {message.author.display_name} in {message.guild.name}")
+        
+        await message.channel.send(embed=e)
+
+    # Process traditional prefix commands if any are ever added later
+    await bot.process_commands(message)
+
+@bot.event
 async def on_ready():
     await init_db()
     try:
