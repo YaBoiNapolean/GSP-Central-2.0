@@ -196,11 +196,18 @@ async def init_db():
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir)
     async with aiosqlite.connect(DATABASE) as db:
-        await db.execute('''CREATE TABLE IF NOT EXISTS arrests (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, secondaries TEXT, charges TEXT, mugshot TEXT, timestamp TEXT)''')
-        await db.execute('''CREATE TABLE IF NOT EXISTS citations (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, vehicle TEXT, location TEXT, reason TEXT, timestamp TEXT)''')
-        await db.execute('''CREATE TABLE IF NOT EXISTS bolos (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, reason TEXT, vehicle TEXT, plate TEXT, expiry_timestamp TEXT, timestamp TEXT)''')
-        await db.execute('''CREATE TABLE IF NOT EXISTS warrants (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, reason TEXT, risk_level TEXT, expiry_timestamp TEXT, timestamp TEXT)''')
-        await db.execute('''CREATE TABLE IF NOT EXISTS infractions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, issuer_id INTEGER, reason TEXT, punishment TEXT, proof TEXT, msg_url TEXT, is_active INTEGER DEFAULT 1, is_processed INTEGER DEFAULT 0, expiry_timestamp TEXT, timestamp TEXT)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS arrests (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, secondaries TEXT, charges TEXT, mugshot TEXT, timestamp TEXT, guild_id INTEGER)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS citations (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, vehicle TEXT, location TEXT, reason TEXT, timestamp TEXT, guild_id INTEGER)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS bolos (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, reason TEXT, vehicle TEXT, plate TEXT, expiry_timestamp TEXT, timestamp TEXT, guild_id INTEGER)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS warrants (id_code TEXT PRIMARY KEY, suspect TEXT, officer_id INTEGER, reason TEXT, risk_level TEXT, expiry_timestamp TEXT, timestamp TEXT, guild_id INTEGER)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS infractions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, issuer_id INTEGER, reason TEXT, punishment TEXT, proof TEXT, msg_url TEXT, is_active INTEGER DEFAULT 1, is_processed INTEGER DEFAULT 0, expiry_timestamp TEXT, timestamp TEXT, guild_id INTEGER)''')
+        
+        # Migrates existing tables seamlessly
+        for tbl in ["arrests", "citations", "bolos", "warrants", "infractions"]:
+            try:
+                await db.execute(f"ALTER TABLE {tbl} ADD COLUMN guild_id INTEGER")
+            except aiosqlite.OperationalError:
+                pass 
         await db.commit()
 
 async def generate_unique_id():
@@ -359,6 +366,30 @@ class InfractionExpiryDropdown(ui.Select):
     async def callback(self, itx: discord.Interaction):
         await self.callback_func(itx, int(self.values[0]))
 
+        class ActiveSearchPaginator(discord.ui.View):
+            def __init__(self, pages: list[discord.Embed]):
+                super().__init__(timeout=180) # Buttons will time out after 3 minutes
+                self.pages = pages
+                self.current_page = 0
+                self.update_buttons()
+
+            def update_buttons(self):
+                # Disable 'Back' if on the first page, disable 'Next' if on the last page
+                self.children[0].disabled = self.current_page == 0
+                self.children[1].disabled = self.current_page == len(self.pages) - 1
+
+            @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.secondary)
+            async def prev_page(self, itx: discord.Interaction, button: discord.ui.Button):
+                self.current_page -= 1
+                self.update_buttons()
+                await itx.response.edit_message(embed=self.pages[self.current_page], view=self)
+
+            @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary)
+            async def next_page(self, itx: discord.Interaction, button: discord.ui.Button):
+                self.current_page += 1
+                self.update_buttons()
+                await itx.response.edit_message(embed=self.pages[self.current_page], view=self)
+
 # --- COMMANDS ---
 
 @bot.tree.command(name='clear_all_data', description='WIPE ALL DATABASE TABLES (ADMIN ONLY)')
@@ -394,33 +425,90 @@ async def clear_record(itx: discord.Interaction, record_id: str):
             
         await itx.response.send_message(f"⚠️ Delete `{rid}` from **{target_tbl}**?", view=ClearRecordConfirm(itx.user, owner_id, rid, target_tbl), ephemeral=True)
 
-@bot.tree.command(name='trooper_performance', description='View trooper lifetime stats')
+@bot.tree.command(name='trooper_performance', description='View advanced trooper statistics for this department')
 async def trooper_performance(itx: discord.Interaction, trooper: discord.Member):
     if not await is_cmd_channel(itx): return
     await itx.response.defer()
+    
+    now_iso = datetime.now(timezone.utc).isoformat()
+    current_dept_id = itx.guild.id
+    dept_name = get_setting(current_dept_id, 'name') or "Department"
+    
     async with aiosqlite.connect(DATABASE) as db:
-        data = []
-        for tbl in ["arrests", "citations", "bolos", "warrants"]:
-            async with db.execute(f"SELECT COUNT(*) FROM {tbl} WHERE officer_id = ?", (trooper.id,)) as c:
-                res = await c.fetchone()
-                data.append(res[0] if res else 0)
-        async with db.execute("SELECT COUNT(*) FROM infractions WHERE user_id = ?", (trooper.id,)) as c:
-            inf_res = await c.fetchone()
-            inf = inf_res[0] if inf_res else 0
+        # Lifetime Counts isolated by current Guild ID
+        async with db.execute("SELECT COUNT(*) FROM arrests WHERE officer_id = ? AND guild_id = ?", (trooper.id, current_dept_id)) as c:
+            arr_cnt = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM citations WHERE officer_id = ? AND guild_id = ?", (trooper.id, current_dept_id)) as c:
+            cit_cnt = (await c.fetchone())[0]
             
-    roles_config = GUILD_SETTINGS.get(itx.guild.id, {}).get('roles', {})
+        # Active vs Lifetime BOLOs isolated by current Guild ID
+        async with db.execute("SELECT COUNT(*) FROM bolos WHERE officer_id = ? AND guild_id = ?", (trooper.id, current_dept_id)) as c:
+            bolo_total = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM bolos WHERE officer_id = ? AND expiry_timestamp > ? AND guild_id = ?", (trooper.id, now_iso, current_dept_id)) as c:
+            bolo_active = (await c.fetchone())[0]
+            
+        # Active vs Lifetime Warrants isolated by current Guild ID
+        async with db.execute("SELECT COUNT(*) FROM warrants WHERE officer_id = ? AND guild_id = ?", (trooper.id, current_dept_id)) as c:
+            war_total = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM warrants WHERE officer_id = ? AND expiry_timestamp > ? AND guild_id = ?", (trooper.id, now_iso, current_dept_id)) as c:
+            war_active = (await c.fetchone())[0]
+            
+        # Infraction Standing isolated by current Guild ID so roleplay profiles stay separate
+        async with db.execute("SELECT COUNT(*) FROM infractions WHERE user_id = ? AND guild_id = ?", (trooper.id, current_dept_id)) as c:
+            inf_lifetime = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM infractions WHERE user_id = ? AND is_processed = 0 AND guild_id = ?", (trooper.id, current_dept_id)) as c:
+            inf_active = (await c.fetchone())[0]
+            
+    # Advanced Dynamic Calculations
+    total_actions = arr_cnt + cit_cnt + bolo_total + war_total
+    
+    if (arr_cnt + cit_cnt) > 0:
+        ratio = round((arr_cnt / (arr_cnt + cit_cnt)) * 100)
+        ratio_display = f"{ratio}% Custody / {100 - ratio}% Citation"
+    else:
+        ratio_display = "No citation/arrest history"
+
+    # Evaluate standing based on local role configurations
+    roles_config = GUILD_SETTINGS.get(current_dept_id, {}).get('roles', {})
     s1 = itx.guild.get_role(roles_config.get('strike_1'))
     s2 = itx.guild.get_role(roles_config.get('strike_2'))
     ub = itx.guild.get_role(roles_config.get('up_for_ban'))
     
-    cur = "None"
-    if ub in trooper.roles: cur = "⚠️ Up For Termination"
-    elif s2 in trooper.roles: cur = "Strike 2"
-    elif s1 in trooper.roles: cur = "Strike 1"
+    if ub and ub in trooper.roles: 
+        status_tier = "🔴 Up For Termination"
+    elif s2 and s2 in trooper.roles: 
+        status_tier = "🟠 Strike 2 (Final Warning)"
+    elif s1 and s1 in trooper.roles: 
+        status_tier = "🟡 Strike 1"
+    else: 
+        status_tier = "🟢 Good Standing"
+
+    # Build clean, department-specific card layout
+    e = discord.Embed(title=f"📊 **{dept_name} PERFORMANCE: {trooper.display_name.upper()}**", color=GSP_CUSTOM_ORANGE)
     
-    e = discord.Embed(title=f"**PERFORMANCE: {trooper.display_name}**", color=GSP_CUSTOM_ORANGE)
-    e.description = f"{SEPARATOR}\n**Status:** `{cur}`\n🚨 **Arrests:** `{data[0]}`\n🎫 **Citations:** `{data[1]}`\n📡 **BOLOs:** `{data[2]}`\n⚖️ **Warrants:** `{data[3]}`\n⚠️ **Infractions:** `{inf}`\n{SEPARATOR}"
-    e.set_footer(text=f"Requested by {itx.user.display_name}")
+    if trooper.display_avatar:
+        e.set_thumbnail(url=trooper.display_avatar.url)
+        
+    e.description = (
+        f"{SEPARATOR}\n"
+        f"📋 **{dept_name} Administrative Standing**\n"
+        f"• **Local Status:** `{status_tier}`\n"
+        f"• **Active Misconduct Points:** `{inf_active}/3`\n"
+        f"• **Total Department Infractions:** `{inf_lifetime}`\n\n"
+        
+        f"📈 **Activity Overview**\n"
+        f"• **Grand Total Actions (TEA):** `{total_actions}`\n"
+        f"• **Enforcement Profile:** `{ratio_display}`\n\n"
+        
+        f"🗂️ **Detailed Ledger Counts**\n"
+        f"• 🚨 **Arrests Secured:** `{arr_cnt}`\n"
+        f"• 🎫 **Citations Issued:** `{cit_cnt}`\n"
+        f"• 📡 **BOLOs Issued:** `{bolo_total}` *({bolo_active} active)*\n"
+        f"• ⚖️ **Warrants Issued:** `{war_total}` *({war_active} active)*\n"
+        f"{SEPARATOR}"
+    )
+    
+    e.set_footer(text=f"Requested by {itx.user.display_name} in {itx.guild.name}")
     await itx.followup.send(embed=e)
 
 @bot.tree.command(name='search_record', description='Search any GSP ID')
@@ -468,10 +556,15 @@ async def infraction_log(itx: discord.Interaction, trooper: discord.Member, reas
         log_msg = await inf_channel.send(content=f"{trooper.mention}", embed=e)
         
         async with aiosqlite.connect(DATABASE) as db:
-            await db.execute('''INSERT INTO infractions (user_id, issuer_id, reason, punishment, proof, msg_url, expiry_timestamp, timestamp) VALUES (?,?,?,?,?,?,?,?)''', (trooper.id, itx.user.id, reason, punishment, proof, log_msg.jump_url, expire_at, ts))
-            await db.commit()
-            async with db.execute("SELECT id, msg_url FROM infractions WHERE user_id = ? AND is_processed = 0", (trooper.id,)) as c:
-                rows = await c.fetchall()
+            # Replace the database segment inside infraction_log with this:
+            async with aiosqlite.connect(DATABASE) as db:
+                await db.execute('''INSERT INTO infractions (user_id, issuer_id, reason, punishment, proof, msg_url, expiry_timestamp, timestamp, guild_id) VALUES (?,?,?,?,?,?,?,?,?)''', 
+                             (trooper.id, itx.user.id, reason, punishment, proof, log_msg.jump_url, expire_at, ts, itx.guild.id))
+                await db.commit()
+            
+            # Filters previous infractions to ensure they are checked strictly within the same server
+                async with db.execute("SELECT id, msg_url FROM infractions WHERE user_id = ? AND is_processed = 0 AND guild_id = ?", (trooper.id, itx.guild.id)) as c:
+                    rows = await c.fetchall()
                 
         if len(rows) >= 3:
             roles_config = GUILD_SETTINGS.get(itx.guild.id, {}).get('roles', {})
@@ -516,8 +609,9 @@ async def arrest_log(itx: discord.Interaction, suspect: str, charges: str, secon
     if not await is_cmd_channel(itx): return
     await itx.response.defer(ephemeral=True)
     id_code, ts = await generate_unique_id(), get_pst_time()
+    # Replace the database block inside arrest_log with this:
     async with aiosqlite.connect(DATABASE) as db:
-        await db.execute("INSERT INTO arrests VALUES (?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, secondaries, charges, mugshot_url, ts))
+        await db.execute("INSERT INTO arrests VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, secondaries, charges, mugshot_url, ts, itx.guild.id))
         await db.commit()
     e = discord.Embed(title="**ARREST RECORD**", color=GSP_CUSTOM_ORANGE)
     e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Secondaries:** {secondaries}\n**Charges:** {charges}\n**Date:** {ts}\n{SEPARATOR}"
@@ -540,8 +634,9 @@ async def citation_log(itx: discord.Interaction, suspect: str, vehicle: str, loc
     if not await is_cmd_channel(itx): return
     await itx.response.defer(ephemeral=True)
     id_code, ts = await generate_unique_id(), get_pst_time()
+    # Replace the database block inside citation_log with this:
     async with aiosqlite.connect(DATABASE) as db:
-        await db.execute("INSERT INTO citations VALUES (?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, vehicle, location, reason, ts))
+        await db.execute("INSERT INTO citations VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, vehicle, location, reason, ts, itx.guild.id))
         await db.commit()
     e = discord.Embed(title="**CITATION RECORD**", color=GSP_YELLOW)
     e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Vehicle:** {vehicle}\n**Location:** {location}\n**Reason:** {reason}\n**Date:** {ts}\n{SEPARATOR}"
@@ -563,8 +658,9 @@ async def bolo_log(itx: discord.Interaction, suspect: str, vehicle: str, reason:
     if not await is_cmd_channel(itx): return
     async def post_bolo(itx_s, hours):
         id_code, ts, expire = await generate_unique_id(), get_pst_time(), (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+        # Replace the database block inside post_bolo with this:
         async with aiosqlite.connect(DATABASE) as db:
-            await db.execute("INSERT INTO bolos VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, reason, vehicle, plate, expire, ts))
+            await db.execute("INSERT INTO bolos VALUES (?,?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, reason, vehicle, plate, expire, ts, itx_s.guild.id))
             await db.commit()
         e = discord.Embed(title="**BOLO ACTIVE**", color=GSP_RED)
         e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Vehicle:** {vehicle}\n**Plate:** {plate}\n**Reason:** {reason}\n**Date:** {ts}\n{SEPARATOR}"
@@ -584,8 +680,9 @@ async def warrant_log(itx: discord.Interaction, suspect: str, reason: str, risk:
     if not await is_cmd_channel(itx): return
     async def post_war(itx_s, hours):
         id_code, ts, expire = await generate_unique_id(), get_pst_time(), (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
+        # Replace the database block inside post_war with this:
         async with aiosqlite.connect(DATABASE) as db:
-            await db.execute("INSERT INTO warrants VALUES (?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, reason, risk, expire, ts))
+            await db.execute("INSERT INTO warrants VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, reason, risk, expire, ts, itx_s.guild.id))
             await db.commit()
         e = discord.Embed(title="**WARRANT ACTIVE**", color=GSP_RED)
         e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Reason:** {reason}\n**Risk Level:** {risk}\n**Date:** {ts}\n{SEPARATOR}"
@@ -599,6 +696,85 @@ async def warrant_log(itx: discord.Interaction, suspect: str, reason: str, risk:
         
         await itx_s.response.send_message(f"✅ Warrant Issued.", ephemeral=True)
     await itx.response.send_message("Duration:", view=ui.View().add_item(ExpiryDropdown(post_war)), ephemeral=True)
+
+@bot.tree.command(name="search_active", description="Global search for all active Warrants and BOLOs across all departments")
+async def search_active(itx: discord.Interaction):
+    if not await is_cmd_channel(itx): return
+    await itx.response.defer()
+    
+    now_iso = datetime.now(timezone.utc).isoformat()
+    
+    # 1. Fetch Global Data (No guild_id filter)
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT id_code, suspect, reason, risk_level FROM warrants WHERE expiry_timestamp > ?", (now_iso,)) as c:
+            warrants = await c.fetchall()
+        async with db.execute("SELECT id_code, suspect, reason, vehicle, plate FROM bolos WHERE expiry_timestamp > ?", (now_iso,)) as c:
+            bolos = await c.fetchall()
+
+    # 2. Categorize and Format Data
+    high_w, med_w, low_w, active_b = [], [], [], []
+    
+    for w in warrants:
+        id_code, suspect, reason, risk = w
+        line = f"⚖️ **`{id_code}`** | **{suspect}** - *{reason}*"
+        if risk.lower() == 'high': high_w.append(line)
+        elif risk.lower() == 'medium': med_w.append(line)
+        else: low_w.append(line)
+            
+    for b in bolos:
+        id_code, suspect, reason, vehicle, plate = b
+        active_b.append(f"📡 **`{id_code}`** | **{suspect}** - *{vehicle} ({plate})* - *{reason}*")
+
+    # 3. Build the Display Layout Sequence
+    lines = []
+    if high_w:
+        lines.append("### 🔴 High Risk Warrants")
+        lines.extend(high_w)
+    if med_w:
+        lines.append("### 🟠 Medium Risk Warrants")
+        lines.extend(med_w)
+    if low_w:
+        lines.append("### 🟡 Low Risk Warrants")
+        lines.extend(low_w)
+    if active_b:
+        lines.append("### 🔵 Active BOLOs")
+        lines.extend(active_b)
+        
+    if not lines:
+        await itx.followup.send("✅ There are currently no active warrants or BOLOs in the global network.")
+        return
+
+    # 4. Chunking into Pages (Max ~2000 chars per page for clean formatting)
+    pages = []
+    current_page_text = ""
+    for line in lines:
+        if len(current_page_text) + len(line) > 2000:
+            pages.append(current_page_text)
+            current_page_text = line + "\n"
+        else:
+            current_page_text += line + "\n"
+    if current_page_text:
+        pages.append(current_page_text)
+
+    # 5. Convert Text Pages into Discord Embeds
+    embeds = []
+    for i, page_content in enumerate(pages):
+        e = discord.Embed(
+            title="🌐 **GLOBAL ACTIVE WARRANTS & BOLOS**", 
+            description=f"{SEPARATOR}\n{page_content}\n{SEPARATOR}",
+            color=GSP_CUSTOM_ORANGE
+        )
+        e.set_footer(text=f"Page {i+1} of {len(pages)} | Requested by {itx.user.display_name}")
+        embeds.append(e)
+
+    # 6. Send the Response
+    if len(embeds) == 1:
+        # If everything fits on one page, don't bother attaching buttons
+        await itx.followup.send(embed=embeds[0])
+    else:
+        # Attach the UI View if there are multiple pages
+        view = ActiveSearchPaginator(embeds)
+        await itx.followup.send(embed=embeds[0], view=view)
 
 @bot.tree.command(name="user_info", description="Discord profile lookup")
 async def user_info(itx: discord.Interaction, trooper: discord.Member):
@@ -678,7 +854,7 @@ async def on_message(message):
         
         # Feature: Set the bot's profile picture as the main large embed image
         if bot.user.display_avatar:
-            e.set_image(url=bot.user.display_avatar.url)
+            e.set_thumbnail(url=bot.user.display_avatar.url)
             
         # Compile stats and directory layout
         e.description = (
@@ -699,6 +875,42 @@ async def on_message(message):
 
     # Process traditional prefix commands if any are ever added later
     await bot.process_commands(message)
+
+@bot.tree.command(name="commands", description="View a directory of all available bot commands")
+async def commands_directory(itx: discord.Interaction):
+    if not await is_cmd_channel(itx): return
+    
+    # Dynamically fetch all registered slash commands from the tree
+    slash_cmds = bot.tree.get_commands()
+    total_cmds = len(slash_cmds)
+    
+    # Build the scannable directory list of commands and their descriptions
+    cmd_directory = ""
+    for cmd in slash_cmds:
+        cmd_directory += f"• `/{cmd.name}`: *{cmd.description or 'No description available.'}*\n"
+        
+    # Set up the embed structure
+    e = discord.Embed(
+        title="📂 **COMMAND DIRECTORY**", 
+        color=GSP_CUSTOM_ORANGE
+    )
+    
+    # Keeps it consistent with the bot's avatar in the top right corner
+    if bot.user.display_avatar:
+        e.set_thumbnail(url=bot.user.display_avatar.url)
+        
+    # Compile stats and directory layout
+    e.description = (
+        f"{SEPARATOR}\n"
+        f"📊 **Total Registered Commands:** `{total_cmds}`\n\n"
+        f"🛠️ **Available Slash Commands:**\n{cmd_directory}"
+        f"{SEPARATOR}"
+    )
+    
+    # Uses your requested footer layout
+    e.set_footer(text=f"Requested by {itx.user.display_name} in {itx.guild.name}")
+    
+    await itx.response.send_message(embed=e)
 
 @bot.event
 async def on_ready():
