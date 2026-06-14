@@ -650,7 +650,7 @@ async def user_info(itx: discord.Interaction, trooper: discord.Member):
     )
     
     # Keeping your uniform global logging footer format intact
-    e.set_footer(text=f"Logged by {itx.user.display_name} in {itx.guild.name}")
+    e.set_footer(text=f"Requested by {itx.user.display_name} in {itx.guild.name}")
     await itx.response.send_message(embed=e)
 
 @bot.event
