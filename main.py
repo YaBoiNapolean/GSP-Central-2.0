@@ -30,11 +30,11 @@ DATABASE = '/data/gsp_bot.db'
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Visual Identity
+# Visual Identity (embed colors)
 GSP_CUSTOM_ORANGE = discord.Color.from_str("#0f13ff")
 GSP_RED = discord.Color.red()
 GSP_YELLOW = 0xFFFF00
-SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+SEPARATOR = "~~━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━~~"
 
 # Restrict commands only to GSP and FBI command channels
 ALLOWED_CMD_CHANNELS = [
@@ -190,6 +190,21 @@ def format_time_ago(ts_string):
         return f"{diff.seconds // 60} minutes ago"
     except:
         return "Unknown"
+    
+def get_separator(color_hex: str) -> str:
+        """Returns the custom blue line for #0f13ff, otherwise defaults to the text separator."""
+            # Clean the hex string
+        if isinstance(color_hex, discord.Color):
+            clean_hex = str(color_hex).replace('#', '').lower()
+        else:
+            clean_hex = str(color_hex).replace('#', '').lower()
+    
+        # If the embed is your specific blue, use your new emoji line
+        if clean_hex == "0f13ff":
+            return "<:blue_line:1515792202377203753>" * 12 # Replace with your actual emoji ID
+        
+         # Otherwise, fall back to your original text line string
+        return "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 async def init_db():
     db_dir = os.path.dirname(DATABASE)
@@ -366,29 +381,29 @@ class InfractionExpiryDropdown(ui.Select):
     async def callback(self, itx: discord.Interaction):
         await self.callback_func(itx, int(self.values[0]))
 
-        class ActiveSearchPaginator(discord.ui.View):
-            def __init__(self, pages: list[discord.Embed]):
-                super().__init__(timeout=180) # Buttons will time out after 3 minutes
-                self.pages = pages
-                self.current_page = 0
-                self.update_buttons()
+class ActiveSearchPaginator(discord.ui.View):
+    def __init__(self, pages: list[discord.Embed]):
+        super().__init__(timeout=180) # Buttons will time out after 3 minutes
+        self.pages = pages
+        self.current_page = 0
+        self.update_buttons()
 
-            def update_buttons(self):
-                # Disable 'Back' if on the first page, disable 'Next' if on the last page
-                self.children[0].disabled = self.current_page == 0
-                self.children[1].disabled = self.current_page == len(self.pages) - 1
+    def update_buttons(self):
+        # Disable 'Back' if on the first page, disable 'Next' if on the last page
+        self.children[0].disabled = self.current_page == 0
+        self.children[1].disabled = self.current_page == len(self.pages) - 1
 
-            @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.secondary)
-            async def prev_page(self, itx: discord.Interaction, button: discord.ui.Button):
-                self.current_page -= 1
-                self.update_buttons()
-                await itx.response.edit_message(embed=self.pages[self.current_page], view=self)
+    @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.secondary)
+    async def prev_page(self, itx: discord.Interaction, button: discord.ui.Button):
+        self.current_page -= 1
+        self.update_buttons()
+        await itx.response.edit_message(embed=self.pages[self.current_page], view=self)
 
-            @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary)
-            async def next_page(self, itx: discord.Interaction, button: discord.ui.Button):
-                self.current_page += 1
-                self.update_buttons()
-                await itx.response.edit_message(embed=self.pages[self.current_page], view=self)
+    @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.primary)
+    async def next_page(self, itx: discord.Interaction, button: discord.ui.Button):
+        self.current_page += 1
+        self.update_buttons()
+        await itx.response.edit_message(embed=self.pages[self.current_page], view=self)
 
 # --- COMMANDS ---
 
@@ -510,12 +525,13 @@ async def trooper_performance(itx: discord.Interaction, trooper: discord.Member)
     
     e.set_footer(text=f"Requested by {itx.user.display_name} in {itx.guild.name}")
     await itx.followup.send(embed=e)
-
+    
 @bot.tree.command(name='search_record', description='Search any GSP ID')
 async def search_record(itx: discord.Interaction, record_id: str):
     if not await is_cmd_channel(itx): return
     await itx.response.defer()
     rid = record_id.upper()
+    
     async with aiosqlite.connect(DATABASE) as db:
         for tbl, title, color in [("arrests", "**ARREST RECORD**", GSP_CUSTOM_ORANGE), ("citations", "**CITATION RECORD**", GSP_YELLOW), ("bolos", "**BOLO RECORD**", GSP_RED), ("warrants", "**WARRANT RECORD**", GSP_RED)]:
             async with db.execute(f"SELECT * FROM {tbl} WHERE id_code = ?", (rid,)) as c:
@@ -523,17 +539,23 @@ async def search_record(itx: discord.Interaction, record_id: str):
                 if row:
                     off = await bot.fetch_user(row[2])
                     e = discord.Embed(title=title, color=color)
+                    
+                    # If it's an arrest, fetch the custom blue line emoji. Otherwise, use standard SEPARATOR.
+                    current_line = get_separator("0f13ff") if tbl == "arrests" else SEPARATOR
+                    
                     if tbl == "arrests":
-                        e.description = f"{SEPARATOR}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Secondaries:** {row[3]}\n**Charges:** {row[4]}\n**Date:** {row[6]}\n{SEPARATOR}"
+                        e.description = f"{current_line}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Secondaries:** {row[3]}\n**Charges:** {row[4]}\n**Date:** {row[6]}\n{current_line}"
                         if row[5] != "N/A": e.set_image(url=row[5])
                     elif tbl == "citations":
-                        e.description = f"{SEPARATOR}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Vehicle:** {row[3]}\n**Location:** {row[4]}\n**Reason:** {row[5]}\n**Date:** {row[6]}\n{SEPARATOR}"
+                        e.description = f"{current_line}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Vehicle:** {row[3]}\n**Location:** {row[4]}\n**Reason:** {row[5]}\n**Date:** {row[6]}\n{current_line}"
                     elif tbl == "bolos":
-                        e.description = f"{SEPARATOR}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Vehicle:** {row[4]}\n**Plate:** {row[5]}\n**Reason:** {row[3]}\n**Expires:** {row[6]}\n**Date:** {row[7]}\n{SEPARATOR}"
+                        e.description = f"{current_line}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Vehicle:** {row[4]}\n**Plate:** {row[5]}\n**Reason:** {row[3]}\n**Expires:** {row[6]}\n**Date:** {row[7]}\n{current_line}"
                     else: # warrants
-                        e.description = f"{SEPARATOR}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Reason:** {row[3]}\n**Risk Level:** {row[4]}\n**Expires:** {row[5]}\n**Date:** {row[6]}\n{SEPARATOR}"
+                        e.description = f"{current_line}\n**ID:** {row[0]}\n**Officer:** {off.mention}\n**Suspect:** {row[1]}\n**Reason:** {row[3]}\n**Risk Level:** {row[4]}\n**Expires:** {row[5]}\n**Date:** {row[6]}\n{current_line}"
+                    
                     e.set_footer(text=f"Logged by {off.display_name}")
                     return await itx.followup.send(embed=e)
+                    
     await itx.followup.send(f"❌ `{rid}` not found.")
 
 @bot.tree.command(name='infraction_log', description='Log misconduct')
@@ -604,30 +626,47 @@ async def search_user(itx: discord.Interaction, suspect_name: str):
     e.set_footer(text=f"Requested by {itx.user.display_name}")
     await itx.followup.send(embed=e)
 
-@bot.tree.command(name='arrest_log', description='Record an arrest')
-async def arrest_log(itx: discord.Interaction, suspect: str, charges: str, secondaries: str = "N/A", mugshot_url: str = "N/A"):
+@bot.tree.command(name='arrest_log', description='Record an arrest with a file upload')
+async def arrest_log(
+    itx: discord.Interaction, 
+    suspect: str, 
+    charges: str, 
+    secondaries: str = "N/A", 
+    # Change 'str' to 'discord.Attachment' here:
+    mugshot: discord.Attachment = None 
+):
     if not await is_cmd_channel(itx): return
     await itx.response.defer(ephemeral=True)
-    id_code, ts = await generate_unique_id(), get_pst_time()
-    # Replace the database block inside arrest_log with this:
-    async with aiosqlite.connect(DATABASE) as db:
-        await db.execute("INSERT INTO arrests VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, secondaries, charges, mugshot_url, ts, itx.guild.id))
-        await db.commit()
-    e = discord.Embed(title="**ARREST RECORD**", color=GSP_CUSTOM_ORANGE)
-    e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Secondaries:** {secondaries}\n**Charges:** {charges}\n**Date:** {ts}\n{SEPARATOR}"
-    if mugshot_url != "N/A" and mugshot_url.startswith("http"): e.set_image(url=mugshot_url)
-    e.set_footer(text=f"Logged by {itx.user.display_name}")
     
-    # 1. Log locally to origin server
+    id_code, ts = await generate_unique_id(), get_pst_time()
+    
+    # Extract the URL from the attachment object if an image was uploaded
+    final_image_url = "N/A"
+    if mugshot is not None:
+        final_image_url = mugshot.url # Discord automatically hosts the uploaded file and gives you a URL!
+
+    async with aiosqlite.connect(DATABASE) as db:
+        await db.execute("INSERT INTO arrests VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, secondaries, charges, final_image_url, ts, itx.guild.id))
+        await db.commit()
+        
+    blue_line = get_separator("0f13ff")
+    
+    e = discord.Embed(title="**ARREST RECORD**", color=GSP_CUSTOM_ORANGE)
+    e.description = f"{blue_line}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Secondaries:** {secondaries}\n**Charges:** {charges}\n**Date:** {ts}\n{blue_line}"
+    
+    # Attach the hosted image URL to the embed layout
+    if final_image_url != "N/A": 
+        e.set_image(url=final_image_url)
+        
+    e.set_footer(text=f"Logged by {itx.user.display_name} in {itx.guild.name}")
+    
     local_channel_id = get_setting(itx.guild.id, 'channels', 'arrest_logs')
     local_channel = bot.get_channel(local_channel_id)
     if local_channel:
         await local_channel.send(embed=e)
         
-    # 2. Broadcast log to all OTHER configured servers
     await broadcast_log(bot, e, 'arrest_logs', itx.guild.id)
-    
-    await itx.followup.send(f"✅ Logged `{id_code}`")
+    await itx.followup.send(f"✅ Logged `{id_code}` with file attachment.")
 
 @bot.tree.command(name='citation_log', description='Record a citation')
 async def citation_log(itx: discord.Interaction, suspect: str, vehicle: str, location: str, reason: str):
@@ -638,6 +677,7 @@ async def citation_log(itx: discord.Interaction, suspect: str, vehicle: str, loc
     async with aiosqlite.connect(DATABASE) as db:
         await db.execute("INSERT INTO citations VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, vehicle, location, reason, ts, itx.guild.id))
         await db.commit()
+
     e = discord.Embed(title="**CITATION RECORD**", color=GSP_YELLOW)
     e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Vehicle:** {vehicle}\n**Location:** {location}\n**Reason:** {reason}\n**Date:** {ts}\n{SEPARATOR}"
     e.set_footer(text=f"Logged by {itx.user.display_name}")
@@ -662,6 +702,7 @@ async def bolo_log(itx: discord.Interaction, suspect: str, vehicle: str, reason:
         async with aiosqlite.connect(DATABASE) as db:
             await db.execute("INSERT INTO bolos VALUES (?,?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, reason, vehicle, plate, expire, ts, itx_s.guild.id))
             await db.commit()
+
         e = discord.Embed(title="**BOLO ACTIVE**", color=GSP_RED)
         e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Vehicle:** {vehicle}\n**Plate:** {plate}\n**Reason:** {reason}\n**Date:** {ts}\n{SEPARATOR}"
         e.set_footer(text=f"Logged by {itx.user.display_name}")
@@ -684,6 +725,7 @@ async def warrant_log(itx: discord.Interaction, suspect: str, reason: str, risk:
         async with aiosqlite.connect(DATABASE) as db:
             await db.execute("INSERT INTO warrants VALUES (?,?,?,?,?,?,?,?)", (id_code, suspect, itx.user.id, reason, risk, expire, ts, itx_s.guild.id))
             await db.commit()
+
         e = discord.Embed(title="**WARRANT ACTIVE**", color=GSP_RED)
         e.description = f"{SEPARATOR}\n**ID:** {id_code}\n**Officer:** {itx.user.mention}\n**Suspect:** {suspect}\n**Reason:** {reason}\n**Risk Level:** {risk}\n**Date:** {ts}\n{SEPARATOR}"
         e.set_footer(text=f"Logged by {itx.user.display_name}")
@@ -911,6 +953,63 @@ async def commands_directory(itx: discord.Interaction):
     e.set_footer(text=f"Requested by {itx.user.display_name} in {itx.guild.name}")
     
     await itx.response.send_message(embed=e)
+
+@bot.tree.command(name='dept_performance', description='View activity and log metrics for a specific department')
+@app_commands.choices(department=[
+    app_commands.Choice(name="Georgia State Patrol (GSP)", value="1471660122035195916"),
+    app_commands.Choice(name="Federal Bureau of Investigation (FBI)", value="1511837991503401031"),
+    app_commands.Choice(name="Fulton County Sheriff’s Office (FCSO)", value="111111111111111111"),
+    app_commands.Choice(name="Department of Homeland Security (DHS)", value="222222222222222222"),
+    app_commands.Choice(name="United States Marshals Service (USMS)", value="333333333333333333"),
+    app_commands.Choice(name="Atlanta Police Department (APD)", value="444444444444444444")
+])
+async def dept_performance(itx: discord.Interaction, department: app_commands.Choice[str]):
+    if not await is_cmd_channel(itx): return
+    await itx.response.defer(ephemeral=True)
+    
+    # Extract the chosen Guild ID and the actual department configuration name
+    target_guild_id = int(department.value)
+    dept_name = GUILD_SETTINGS[target_guild_id]['name']
+    
+    # Query your database to calculate the live performance metrics
+    async with aiosqlite.connect(DATABASE) as db:
+        async with db.execute("SELECT COUNT(*) FROM arrests WHERE guild_id = ?", (target_guild_id,)) as c:
+            arr_count = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM citations WHERE guild_id = ?", (target_guild_id,)) as c:
+            cit_count = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM bolos WHERE guild_id = ?", (target_guild_id,)) as c:
+            bolo_count = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM warrants WHERE guild_id = ?", (target_guild_id,)) as c:
+            war_count = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM infractions WHERE guild_id = ?", (target_guild_id,)) as c:
+            inf_count = (await c.fetchone())[0]
+
+    total_actions = arr_count + cit_count + bolo_count + war_count + inf_count
+    
+    # Generate your custom blue line layout
+    blue_line = get_separator("0f13ff")
+    
+    e = discord.Embed(
+        title=f"📊 **DEPARTMENT PERFORMANCE REPORT: {dept_name}**",
+        color=GSP_CUSTOM_ORANGE
+    )
+    
+    e.description = (
+        f"{blue_line}\n"
+        f"📈 **Total Logs Filed:** `{total_actions}`\n\n"
+        f"📂 **Breakdown by Category:**\n"
+        f"🔹 **Arrests:** `{arr_count}`\n"
+        f"🔹 **Citations:** `{cit_count}`\n"
+        f"🔹 **BOLOs Issued:** `{bolo_count}`\n"
+        f"🔹 **Warrants Issued:** `{war_count}`\n"
+        f"🔹 **Internal Infractions:** `{inf_count}`\n"
+        f"{blue_line}"
+    )
+    
+    e.set_footer(text=f"Requested by {itx.user.display_name} • Data evaluated live")
+    
+    # Send the final generated report card directly as the follow-up response
+    await itx.followup.send(embed=e)
 
 @bot.event
 async def on_ready():
