@@ -1,5 +1,11 @@
 require("dotenv").config();
-
+console.log("=== SERVER ENV ===");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("Variables starting with DISCORD:");
+console.log(
+  Object.keys(process.env).filter(key => key.startsWith("DISCORD"))
+);
+console.log("==================");
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
