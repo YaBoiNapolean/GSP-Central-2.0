@@ -1,10 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
-const { db } = require("../database/db");
+const { db } = require("../database/drizzle");
 const { logs } = require("../database/schema");
 
 const { getIO } = require("../websocket/socket");
+const auth = require("../middleware/auth");
+
+// Dashboard sessions and the existing Discord bot API key can both access logs.
+router.use(auth.requireDashboardOrApiKey);
 
 /*
 |--------------------------------------------------------------------------

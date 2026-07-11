@@ -80,6 +80,8 @@ const users = pgTable("users", {
 
   avatar: text("avatar"),
 
+  isAdmin: boolean("is_admin").default(false),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

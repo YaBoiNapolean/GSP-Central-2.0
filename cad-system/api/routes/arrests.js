@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const { db } = require("../src/db");
-const { arrests } = require("../src/db/schema");
+const { db } = require("../database/drizzle");
+const { arrests } = require("../database/schema");
 const { getIO } = require("../websocket/socket");
 const auth = require("../middleware/auth");
 

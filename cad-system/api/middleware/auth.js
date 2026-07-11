@@ -1,4 +1,4 @@
-module.exports = function (req, res, next) {
+function requireApiKey(req, res, next) {
 
     const apiKey = req.header("x-api-key");
 
@@ -17,4 +17,25 @@ module.exports = function (req, res, next) {
     }
 
     next();
+}
+
+module.exports = requireApiKey;
+
+module.exports.requireDashboardAuth = function (req, res, next) {
+    if (req.isAuthenticated && req.isAuthenticated()) {
+        return next();
+    }
+
+    return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+    });
+};
+
+module.exports.requireDashboardOrApiKey = function (req, res, next) {
+    if (req.isAuthenticated && req.isAuthenticated()) {
+        return next();
+    }
+
+    return requireApiKey(req, res, next);
 };

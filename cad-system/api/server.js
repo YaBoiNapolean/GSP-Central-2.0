@@ -3,18 +3,47 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const session = require("express-session");
+const passport = require("./auth/discord/passport");
 
 const pool = require("./database/db");
 
 const logsRoute = require("./routes/logs");
+const discordAuthRoutes = require("./auth/discord/routes");
 
 const socketManager = require("./websocket/socket");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+const isProduction = process.env.NODE_ENV === "production";
 
+if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET must be configured before starting the API.");
+}
+
+app.set("trust proxy", isProduction ? 1 : 0);
+app.use(cors({
+    origin: frontendUrl,
+    credentials: true,
+}));
+app.use(express.json());
+app.use(session({
+    name: "gsp.sid",
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
+        maxAge: 1000 * 60 * 60 * 8,
+    },
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.use("/auth", discordAuthRoutes);
 app.use("/api/logs", logsRoute);
 
 app.get("/", (req, res) => {

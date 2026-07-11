@@ -1,9 +1,19 @@
 import "./Login.css";
+import { Navigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
+import { getDiscordLoginUrl } from "../../services/auth";
 
 function Login() {
+    const { isAuthenticated, isLoading } = useAuth();
+    const [searchParams] = useSearchParams();
+
     const handleLogin = () => {
-        window.location.href = "http://localhost:3000/auth/discord";
+        window.location.assign(getDiscordLoginUrl());
     };
+
+    if (!isLoading && isAuthenticated) {
+        return <Navigate to="/" replace />;
+    }
 
     return (
         <div className="login-container">
@@ -19,6 +29,12 @@ function Login() {
                 <p>
                     Sign in using your Discord account to access your department dashboard.
                 </p>
+
+                {searchParams.get("error") && (
+                    <p className="login-error" role="alert">
+                        Discord sign-in could not be completed. Please try again.
+                    </p>
+                )}
 
                 <button
                     className="discord-button"

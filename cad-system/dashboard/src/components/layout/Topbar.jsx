@@ -1,4 +1,14 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
+
 export default function Topbar(){
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate("/login", { replace: true });
+    };
 
     return(
 
@@ -28,10 +38,13 @@ export default function Topbar(){
 
             </h2>
 
-            <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
 
-                Logged in with Discord
+                <span>Logged in as {user?.username}</span>
 
+                <button type="button" onClick={handleLogout}>
+                    Sign out
+                </button>
             </div>
 
         </header>

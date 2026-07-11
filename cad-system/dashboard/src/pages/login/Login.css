@@ -122,3 +122,9 @@
     font-size:13px;
 
 }
+
+.login-error {
+    color: #ff8e8e;
+    margin: -12px 0 20px;
+    font-size: 14px;
+}
