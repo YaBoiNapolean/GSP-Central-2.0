@@ -38,22 +38,18 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-if (!process.env.DISCORD_CLIENT_ID || !process.env.DISCORD_CLIENT_SECRET || !process.env.DISCORD_CALLBACK_URL) {
+console.log("=== ENV DEBUG ===");
+console.log("CLIENT_ID:", process.env.DISCORD_CLIENT_ID);
+console.log("CLIENT_SECRET:", process.env.DISCORD_CLIENT_SECRET ? "[SET]" : "[MISSING]");
+console.log("CALLBACK_URL:", process.env.DISCORD_CALLBACK_URL);
+console.log("=================");
+
+if (
+    !process.env.DISCORD_CLIENT_ID ||
+    !process.env.DISCORD_CLIENT_SECRET ||
+    !process.env.DISCORD_CALLBACK_URL
+) {
     throw new Error("Discord OAuth environment variables are required.");
 }
-
-passport.use(new DiscordStrategy({
-    clientID: process.env.DISCORD_CLIENT_ID,
-    clientSecret: process.env.DISCORD_CLIENT_SECRET,
-    callbackURL: process.env.DISCORD_CALLBACK_URL,
-    scope: DISCORD_SCOPES,
-}, async (accessToken, refreshToken, profile, done) => {
-    try {
-        const user = await upsertDiscordUser(profile);
-        done(null, user);
-    } catch (error) {
-        done(error);
-    }
-}));
 
 module.exports = passport;
