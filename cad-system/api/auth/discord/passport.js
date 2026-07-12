@@ -7,18 +7,21 @@ const DISCORD_SCOPES = ["identify"];
 
 function upsertDiscordUser(profile) {
     const username = profile.global_name || profile.username;
+
     const avatar = profile.avatar
         ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
         : null;
 
     return pool.query(
         `INSERT INTO users (discord_id, username, avatar)
-         VALUES ($1, $2, $3)
+         VALUES ($1,$2,$3)
          ON CONFLICT (discord_id)
-         DO UPDATE SET username = EXCLUDED.username, avatar = EXCLUDED.avatar
+         DO UPDATE
+         SET username = EXCLUDED.username,
+             avatar = EXCLUDED.avatar
          RETURNING id, discord_id, username, avatar, is_admin`,
         [profile.id, username, avatar]
-    ).then((result) => result.rows[0]);
+    ).then(result => result.rows[0]);
 }
 
 passport.serializeUser((user, done) => {
@@ -28,21 +31,18 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (id, done) => {
     try {
         const result = await pool.query(
-            "SELECT id, discord_id, username, avatar, is_admin FROM users WHERE id = $1",
+            `SELECT id, discord_id, username, avatar, is_admin
+             FROM users
+             WHERE id = $1`,
             [id]
         );
 
         done(null, result.rows[0] || false);
-    } catch (error) {
-        done(error);
+
+    } catch (err) {
+        done(err);
     }
 });
-
-console.log("=== ENV DEBUG ===");
-console.log("CLIENT_ID:", process.env.DISCORD_CLIENT_ID);
-console.log("CLIENT_SECRET:", process.env.DISCORD_CLIENT_SECRET ? "[SET]" : "[MISSING]");
-console.log("CALLBACK_URL:", process.env.DISCORD_CALLBACK_URL);
-console.log("=================");
 
 if (
     !process.env.DISCORD_CLIENT_ID ||
@@ -51,5 +51,24 @@ if (
 ) {
     throw new Error("Discord OAuth environment variables are required.");
 }
+
+passport.use(
+    new DiscordStrategy(
+        {
+            clientID: process.env.DISCORD_CLIENT_ID,
+            clientSecret: process.env.DISCORD_CLIENT_SECRET,
+            callbackURL: process.env.DISCORD_CALLBACK_URL,
+            scope: DISCORD_SCOPES,
+        },
+        async (accessToken, refreshToken, profile, done) => {
+            try {
+                const user = await upsertDiscordUser(profile);
+                return done(null, user);
+            } catch (err) {
+                return done(err);
+            }
+        }
+    )
+);
 
 module.exports = passport;

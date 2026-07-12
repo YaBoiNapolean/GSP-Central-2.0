@@ -3,17 +3,22 @@ const passport = require("./passport");
 
 const router = express.Router();
 
-function getFrontendUrl() {
+function frontendUrl() {
     return (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 }
 
-router.get("/discord", passport.authenticate("discord"));
+router.get(
+    "/discord",
+    passport.authenticate("discord")
+);
 
 router.get(
     "/discord/callback",
-    passport.authenticate("discord", { failureRedirect: `${getFrontendUrl()}/login?error=discord_auth_failed` }),
+    passport.authenticate("discord", {
+        failureRedirect: `${frontendUrl()}/login?error=discord_auth_failed`,
+    }),
     (req, res) => {
-        res.redirect(`${getFrontendUrl()}/`);
+        res.redirect(frontendUrl());
     }
 );
 
@@ -21,29 +26,23 @@ router.get("/me", (req, res) => {
     if (!req.isAuthenticated()) {
         return res.status(401).json({
             success: false,
-            message: "Authentication required.",
+            message: "Unauthorized",
         });
     }
 
-    return res.json({
+    res.json({
         success: true,
         user: req.user,
     });
 });
 
 router.post("/logout", (req, res, next) => {
-    req.logout((error) => {
-        if (error) {
-            return next(error);
-        }
+    req.logout(err => {
+        if (err) return next(err);
 
-        req.session.destroy((sessionError) => {
-            if (sessionError) {
-                return next(sessionError);
-            }
-
+        req.session.destroy(() => {
             res.clearCookie("gsp.sid");
-            return res.status(204).send();
+            res.sendStatus(204);
         });
     });
 });
