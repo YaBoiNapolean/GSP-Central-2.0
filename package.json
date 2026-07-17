@@ -16,5 +16,10 @@
     "lint": "npm --prefix cad-system/dashboard run lint",
     "start:api": "npm --prefix cad-system/api start",
     "start:bot": "python3 main.py"
+  },
+  "dependencies": {
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.24.0",
+    "react-hot-toast": "^2.6.0"
   }
 }
