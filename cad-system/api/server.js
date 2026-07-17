@@ -16,6 +16,8 @@ const pool = require("./database/db");
 
 const logsRoute = require("./routes/logs");
 const discordAuthRoutes = require("./auth/discord/routes");
+const departmentsRoutes=require("./routes/departments");
+const discordRoutes = require("./routes/discord");
 
 const socketManager = require("./websocket/socket");
 
@@ -51,6 +53,17 @@ app.use(passport.session());
 
 app.use("/auth", discordAuthRoutes);
 app.use("/api/logs", logsRoute);
+app.use(
+
+    "/api/departments",
+
+    departmentsRoutes
+
+);
+app.use(
+    "/api/discord",
+    discordRoutes
+);
 
 app.get("/", (req, res) => {
     res.json({

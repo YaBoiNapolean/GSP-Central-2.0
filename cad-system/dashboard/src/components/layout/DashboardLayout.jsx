@@ -1,7 +1,9 @@
+import { Outlet } from "react-router-dom";
+
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
-export default function DashboardLayout({children}){
+export default function DashboardLayout(){
 
     return(
 
@@ -27,12 +29,12 @@ export default function DashboardLayout({children}){
                 <main
                     style={{
                         flex:1,
-                        padding:"30px",
-                        overflow:"auto"
+                        overflow:"auto",
+                        padding:"30px"
                     }}
                 >
 
-                    {children}
+                    <Outlet/>
 
                 </main>
 

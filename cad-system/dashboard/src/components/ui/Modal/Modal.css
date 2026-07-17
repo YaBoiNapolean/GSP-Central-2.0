@@ -1,0 +1,93 @@
+.modalOverlay{
+
+    position:fixed;
+
+    inset:0;
+
+    background:rgba(0,0,0,.72);
+
+    backdrop-filter:blur(6px);
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    z-index:5000;
+
+}
+
+.modalWindow{
+
+    width:95%;
+
+    background:#111923;
+
+    border:1px solid #243242;
+
+    border-radius:18px;
+
+    overflow:hidden;
+
+    animation:modalOpen .18s ease;
+
+}
+
+.modalHeader{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:24px 28px;
+
+    border-bottom:1px solid #243242;
+
+}
+
+.modalHeader h2{
+
+    margin:0;
+
+}
+
+.modalHeader button{
+
+    background:none;
+
+    border:none;
+
+    color:white;
+
+    cursor:pointer;
+
+}
+
+.modalBody{
+
+    padding:30px;
+
+}
+
+@keyframes modalOpen{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(15px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:none;
+
+    }
+
+}

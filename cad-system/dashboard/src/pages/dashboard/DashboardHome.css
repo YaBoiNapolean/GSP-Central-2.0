@@ -1,0 +1,287 @@
+.statsGrid{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+
+    gap:22px;
+
+    margin-top:28px;
+
+    margin-bottom:28px;
+
+}
+
+.welcomeBanner{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:10px 4px;
+
+}
+
+.welcomeBanner h2{
+
+    margin:0;
+
+    font-size:30px;
+
+    color:white;
+
+    font-weight:700;
+
+    letter-spacing:.5px;
+
+}
+
+.welcomeBanner p{
+
+    margin-top:10px;
+
+    color:#8da2b7;
+
+    max-width:700px;
+
+    line-height:1.7;
+
+    font-size:15px;
+
+}
+
+.statCard{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:18px;
+
+    transition:.2s ease;
+
+}
+
+.statCard svg{
+
+    color:#3b82f6;
+
+    background:#172433;
+
+    padding:14px;
+
+    width:56px;
+
+    height:56px;
+
+    border-radius:14px;
+
+}
+
+.statCard h2{
+
+    margin:0;
+
+    color:white;
+
+    font-size:30px;
+
+    font-weight:700;
+
+}
+
+.statCard span{
+
+    color:#8fa1b5;
+
+    font-size:14px;
+
+}
+
+.statCard:hover{
+
+    transform:translateY(-5px);
+
+}
+
+.dashboardGrid{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+
+    gap:24px;
+
+    margin-top:10px;
+
+}
+
+.activityList{
+
+    list-style:none;
+
+    padding:0;
+
+    margin:0;
+
+}
+
+.activityList li{
+
+    position:relative;
+
+    padding:14px 0 14px 22px;
+
+    border-bottom:1px solid rgba(255,255,255,.06);
+
+    color:#d6dde6;
+
+}
+
+.activityList li:last-child{
+
+    border-bottom:none;
+
+}
+
+.activityList li::before{
+
+    content:"";
+
+    position:absolute;
+
+    left:0;
+
+    top:22px;
+
+    width:8px;
+
+    height:8px;
+
+    border-radius:50%;
+
+    background:#3b82f6;
+
+    box-shadow:0 0 10px rgba(59,130,246,.8);
+
+}
+
+.quickActions{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+
+    gap:14px;
+
+}
+
+.departmentOverview{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:16px;
+
+}
+
+.departmentOverview p{
+
+    margin:0;
+
+    color:#d3dce6;
+
+    background:#151f2b;
+
+    border:1px solid rgba(255,255,255,.05);
+
+    padding:14px 18px;
+
+    border-radius:12px;
+
+    transition:.2s;
+
+}
+
+.departmentOverview p:hover{
+
+    border-color:#3b82f6;
+
+    transform:translateX(5px);
+
+}
+
+.systemStatus{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:16px;
+
+}
+
+.systemStatus div{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+    background:#151f2b;
+
+    border:1px solid rgba(255,255,255,.05);
+
+    padding:14px 18px;
+
+    border-radius:12px;
+
+    color:#d5dde7;
+
+    transition:.2s;
+
+}
+
+.systemStatus div:hover{
+
+    border-color:#22c55e;
+
+    transform:translateX(5px);
+
+}
+
+.systemStatus svg{
+
+    color:#22c55e;
+
+}
+
+@media(max-width:1200px){
+
+    .dashboardGrid{
+
+        grid-template-columns:1fr;
+
+    }
+
+}
+
+@media(max-width:700px){
+
+    .statsGrid{
+
+        grid-template-columns:1fr;
+
+    }
+
+    .welcomeBanner h2{
+
+        font-size:24px;
+
+    }
+
+}

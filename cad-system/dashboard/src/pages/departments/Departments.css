@@ -1,0 +1,51 @@
+.departmentGrid{
+
+    display:grid;
+
+    grid-template-columns:repeat(auto-fill,minmax(360px,1fr));
+
+    gap:26px;
+
+    margin-top:30px;
+
+}
+
+.emptyDepartments{
+
+    margin-top:60px;
+
+    padding:80px 40px;
+
+    text-align:center;
+
+    border:1px dashed #2d3e52;
+
+    border-radius:18px;
+
+    background:#111923;
+
+}
+
+.emptyDepartments h2{
+
+    margin:0;
+
+    color:white;
+
+    font-size:30px;
+
+}
+
+.emptyDepartments p{
+
+    margin:18px auto 34px;
+
+    max-width:620px;
+
+    color:#8ea2b8;
+
+    line-height:1.7;
+
+    font-size:15px;
+
+}

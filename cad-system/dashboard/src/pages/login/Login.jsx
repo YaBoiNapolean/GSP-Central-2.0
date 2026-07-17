@@ -1,56 +1,137 @@
 import "./Login.css";
+
 import { Navigate, useSearchParams } from "react-router-dom";
+import { Shield, LogIn } from "lucide-react";
+
 import { useAuth } from "../../context/useAuth";
+import { useBranding } from "../../context/BrandingContext";
+
 import { getDiscordLoginUrl } from "../../services/auth";
 
-function Login() {
+export default function Login() {
+
+    const { branding } = useBranding();
+
     const { isAuthenticated, isLoading } = useAuth();
+
     const [searchParams] = useSearchParams();
 
     const handleLogin = () => {
+
         window.location.assign(getDiscordLoginUrl());
+
     };
 
     if (!isLoading && isAuthenticated) {
+
         return <Navigate to="/" replace />;
+
     }
 
     return (
-        <div className="login-container">
 
-            <div className="login-card">
+        <div className="loginPage">
 
-                {/* Dashboard Logo goes here later */}
+            <div className="backgroundGrid"></div>
 
-                <h1>CAD Dashboard</h1>
+            <div className="backgroundGlow glowOne"></div>
 
-                <h3>Secure Law Enforcement Portal</h3>
+            <div className="backgroundGlow glowTwo"></div>
+
+            <div className="loginCard">
+
+                <div className="logoContainer">
+
+                    {
+
+                        branding.logo ?
+
+                            (
+
+                                <img
+
+                                    src={branding.logo}
+
+                                    alt={branding.dashboardName}
+
+                                    className="dashboardLogo"
+
+                                />
+
+                            )
+
+                            :
+
+                            (
+
+                                <div className="logoPlaceholder">
+
+                                    <Shield size={42} />
+
+                                </div>
+
+                            )
+
+                    }
+
+                </div>
+
+                <h1>
+
+                    {branding.dashboardName}
+
+                </h1>
+
+                <h2>
+
+                    {branding.loginSubtitle}
+
+                </h2>
 
                 <p>
-                    Sign in using your Discord account to access your department dashboard.
+
+                    Authenticate with Discord to securely access your dashboard.
+
                 </p>
 
-                {searchParams.get("error") && (
-                    <p className="login-error" role="alert">
-                        Discord sign-in could not be completed. Please try again.
-                    </p>
-                )}
+                {
+
+                    searchParams.get("error") && (
+
+                        <div className="loginError">
+
+                            Authentication failed. Please try again.
+
+                        </div>
+
+                    )
+
+                }
 
                 <button
-                    className="discord-button"
+
+                    className="discordButton"
+
                     onClick={handleLogin}
+
                 >
+
+                    <LogIn size={20} />
+
                     Continue with Discord
+
                 </button>
 
-                <span className="login-footer">
-                    Authorized personnel only.
-                </span>
+                <div className="loginStatus">
+
+                    Secure • Real-Time • Department Managed
+
+                </div>
 
             </div>
 
         </div>
-    );
-}
 
-export default Login;
+    );
+
+}

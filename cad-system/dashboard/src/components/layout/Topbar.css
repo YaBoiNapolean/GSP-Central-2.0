@@ -1,0 +1,311 @@
+.topbar{
+
+    height:78px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    padding:0 28px;
+
+    background:#0f151d;
+
+    border-bottom:1px solid #202c39;
+
+}
+
+.searchContainer{
+
+    width:460px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    background:#18212c;
+
+    border:1px solid #243242;
+
+    border-radius:14px;
+
+    padding:13px 16px;
+
+    transition:.2s;
+
+}
+
+.searchContainer:hover{
+
+    border-color:#3b82f6;
+
+}
+
+.searchContainer input{
+
+    flex:1;
+
+    border:none;
+
+    background:none;
+
+    outline:none;
+
+    color:white;
+
+    font-size:15px;
+
+}
+
+.searchContainer input::placeholder{
+
+    color:#708090;
+
+}
+
+.topbarRight{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:20px;
+
+}
+
+.statusGroup{
+
+    display:flex;
+
+    gap:10px;
+
+}
+
+.status{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:7px;
+
+    padding:8px 12px;
+
+    border-radius:999px;
+
+    background:#17212d;
+
+    color:#22c55e;
+
+    font-size:12px;
+
+    font-weight:700;
+
+}
+
+.notificationButton{
+
+    position:relative;
+
+    width:42px;
+
+    height:42px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:#18222d;
+
+    color:white;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+}
+
+.notificationButton:hover{
+
+    background:#2563eb;
+
+}
+
+.notificationBadge{
+
+    position:absolute;
+
+    top:5px;
+
+    right:5px;
+
+    width:18px;
+
+    height:18px;
+
+    border-radius:50%;
+
+    background:#ef4444;
+
+    color:white;
+
+    font-size:10px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-weight:700;
+
+}
+
+.profileWrapper{
+
+    position:relative;
+
+}
+
+.profileButton{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+    border:none;
+
+    background:#18222d;
+
+    color:white;
+
+    padding:8px 14px;
+
+    border-radius:14px;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+}
+
+.profileButton:hover{
+
+    background:#223041;
+
+}
+
+.profileButton img{
+
+    width:42px;
+
+    height:42px;
+
+    border-radius:50%;
+
+    border:2px solid #3b82f6;
+
+}
+
+.profileInfo{
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:flex-start;
+
+}
+
+.profileInfo strong{
+
+    font-size:14px;
+
+}
+
+.profileInfo small{
+
+    color:#7f8c9c;
+
+    font-size:12px;
+
+}
+
+.profileDropdown{
+
+    position:absolute;
+
+    right:0;
+
+    top:64px;
+
+    width:220px;
+
+    background:#141b24;
+
+    border:1px solid #243242;
+
+    border-radius:14px;
+
+    overflow:hidden;
+
+    box-shadow:0 18px 40px rgba(0,0,0,.45);
+
+    z-index:1000;
+
+}
+
+.profileDropdown button{
+
+    width:100%;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    padding:14px 16px;
+
+    background:none;
+
+    border:none;
+
+    color:white;
+
+    cursor:pointer;
+
+    transition:.15s;
+
+}
+
+.profileDropdown button:hover{
+
+    background:#1d2835;
+
+}
+
+.dropdownDivider{
+
+    height:1px;
+
+    background:#243242;
+
+}
+
+.logoutButton{
+
+    color:#ff8b8b !important;
+
+}
+
+.logoutButton:hover{
+
+    background:#351b1b !important;
+
+}

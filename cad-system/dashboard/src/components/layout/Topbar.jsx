@@ -1,50 +1,184 @@
-import { useNavigate } from "react-router-dom";
+import "./Topbar.css";
+
+import {
+
+    Bell,
+
+    Search,
+
+    Database,
+
+    Bot,
+
+    Server,
+
+    ChevronDown,
+
+    User,
+
+    LogOut,
+
+    Settings
+
+} from "lucide-react";
+
+import { useState } from "react";
+
 import { useAuth } from "../../context/useAuth";
 
-export default function Topbar(){
+export default function Topbar() {
+
     const { user, logout } = useAuth();
-    const navigate = useNavigate();
 
-    const handleLogout = async () => {
-        await logout();
-        navigate("/login", { replace: true });
-    };
+    const [menuOpen, setMenuOpen] = useState(false);
 
-    return(
+    return (
 
-        <header
-            style={{
+        <header className="topbar">
 
-                height:80,
+            <div className="searchContainer">
 
-                borderBottom:"1px solid var(--border)",
+                <Search size={18}/>
 
-                display:"flex",
+                <input
 
-                alignItems:"center",
+                    placeholder="Search officers, departments, records..."
 
-                justifyContent:"space-between",
+                />
 
-                padding:"0 32px",
+            </div>
 
-                background:"var(--surface)"
+            <div className="topbarRight">
 
-            }}
-        >
+                <div className="statusGroup">
 
-            <h2>
+                    <div className="status online">
 
-                Dashboard
+                        <Server size={14}/>
 
-            </h2>
+                        <span>API</span>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    </div>
 
-                <span>Logged in as {user?.username}</span>
+                    <div className="status online">
 
-                <button type="button" onClick={handleLogout}>
-                    Sign out
+                        <Database size={14}/>
+
+                        <span>DB</span>
+
+                    </div>
+
+                    <div className="status online">
+
+                        <Bot size={14}/>
+
+                        <span>BOT</span>
+
+                    </div>
+
+                </div>
+
+                <button className="notificationButton">
+
+                    <Bell size={19}/>
+
+                    <span className="notificationBadge">
+
+                        3
+
+                    </span>
+
                 </button>
+
+                <div className="profileWrapper">
+
+                    <button
+
+                        className="profileButton"
+
+                        onClick={() => setMenuOpen(!menuOpen)}
+
+                    >
+
+                        <img
+
+                            src={
+                                user?.avatar ||
+                                "https://cdn.discordapp.com/embed/avatars/0.png"
+                            }
+
+                            alt="Avatar"
+
+                        />
+
+                        <div className="profileInfo">
+
+                            <strong>
+
+                                {user?.username || "Loading..."}
+
+                            </strong>
+
+                            <small>
+
+                                Dashboard User
+
+                            </small>
+
+                        </div>
+
+                        <ChevronDown
+                            size={16}
+                        />
+
+                    </button>
+
+                    {
+
+                        menuOpen && (
+
+                            <div className="profileDropdown">
+
+                                <button>
+
+                                    <User size={16}/>
+
+                                    Profile
+
+                                </button>
+
+                                <button>
+
+                                    <Settings size={16}/>
+
+                                    Settings
+
+                                </button>
+
+                                <div className="dropdownDivider"/>
+
+                                <button
+
+                                    className="logoutButton"
+
+                                    onClick={logout}
+
+                                >
+
+                                    <LogOut size={16}/>
+
+                                    Sign Out
+
+                                </button>
+
+                            </div>
+
+                        )
+
+                    }
+
+                </div>
+
             </div>
 
         </header>
